@@ -52,15 +52,16 @@ Get-Content $args[0] | Foreach-Object {
 	#Checks if the hash is already in john.pot
 	$pot_file_loc = ""+$John_DIR+"john.pot"
 	if(Test-Path($pot_file_loc)){
+		$done = "false"
 		Get-Content $pot_file_loc | Foreach-Object {
 			$pot_hash_start = $_.Split("$")[3]
 			$pot_hash = $pot_hash_start.Split(":")[0]
 			$prev_pass = $pot_hash_start.Split(":")[1]
-				
-			if ($pot_hash -like $lmhash){
+			
+			if ($pot_hash -like $ntlmhash){
 				$prev_cracked = "Previously Cracked: "+$username_to_crack+" "+$prev_pass+""
 				$prev_cracked >> $file_to_write
-				Write-Host ""$pot_hash" is already in the Pot File"
+				Write-Host ""$username_to_crack""$pot_hash" is already in the Pot File"
 				$done = "true"
 			}
 		}
@@ -69,9 +70,9 @@ Get-Content $args[0] | Foreach-Object {
 		Write-Host "No john.pot file available."
 	}
 	
-	if($done -like "true"){
-		return
-	}
+	if($done -like "false"){
+	
+	Write-Host ""$username_to_crack" is going to get cracked"
 	
 	#Writes the current hash that is getting cracked to a temp file
 	$file_loc = ""+$(get-location)+"\current.txt"
@@ -116,5 +117,6 @@ Get-Content $args[0] | Foreach-Object {
 	#Clean up the temp files
 	Invoke-Expression "del halfhash.txt"
 	Invoke-Expression "del current.txt"
+	}
 
 }
