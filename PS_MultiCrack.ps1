@@ -8,8 +8,7 @@
 #				-Hashes need to be in this format:
 #				 Domain\User:::LMHASH:NTLMHASH:1122334455667788
 #
-# Possible upcoming changes:
-#				-Add hash format checking
+# To Add - a check for hashes that are not found in the Rainbow Tables (rare, but it happens)
 #
 # Written by Karl Fosaaen
 #	Twitter: @kfosaaen
@@ -41,6 +40,39 @@ Write-Host "You're missing an input or output file name.`nUsage: PS_MultiCrack.p
 break
 }
  
+$LineNum=1
+$LineValid="true"
+#Verify the hashes in the file before trying to open them
+Get-Content $args[0] | Foreach-Object {
+	#Check if it's DOMAIN\User
+	$username_check = $_.Split(“:”)[0]
+	#Length of 48
+	$lmhash_check=$_.Split(“:”)[3]
+	#Length of 48
+	$ntlmhash_check=$_.Split(“:”)[4]
+	#Length of 16
+	$salt_check=$_.Split(“:”)[5]
+			
+	if ($username_check -notlike "*\*"){
+		Write-Host "Line"$LineNum" is not properly formatted at the Domain\Username Add a \`n"$_"`n"
+		break
+	}
+	if($lmhash_check.length -ne 48){
+		Write-Host "Line"$LineNum" is not properly formatted at the LMHASH`n"$_"`n`nCheck your hashes and/or your colons`n"
+		break
+	}
+	if($ntlmhash_check.length -ne 48){
+		Write-Host "Line"$LineNum" is not properly formatted at the NTLMHASH`n"$_"`n`nCheck your hashes and/or your colons`n"
+		break
+	}
+	if($salt_check.length -ne 16){
+		Write-Host "Line"$LineNum" is not properly formatted at the SALT`n"$_"`n`nCheck your hashes and/or your colons`n"
+		break
+	}
+
+	$LineNum=$LineNum+1
+} 
+ 
 #Start the big loop
 Get-Content $args[0] | Foreach-Object {
 	#Hash parsing method
@@ -49,6 +81,9 @@ Get-Content $args[0] | Foreach-Object {
 	$ntlmhash=$_.Split(“:”)[4]
 	$salt=$_.Split(“:”)[5]
 
+	#Check the length of the hashes
+	
+	
 	#Checks if the hash is already in john.pot
 	$pot_file_loc = ""+$John_DIR+"john.pot"
 	if(Test-Path($pot_file_loc)){
