@@ -8,7 +8,8 @@
 #				-Hashes need to be in this format:
 #				 Domain\User:::LMHASH:NTLMHASH:1122334455667788
 #
-# To Add - a check for hashes that are not found in the Rainbow Tables (rare, but it happens)
+# To Add:
+#		 - Stats for number of hashes cracked, number not found, total time
 #
 # Written by Karl Fosaaen
 #	Twitter: @kfosaaen
@@ -34,6 +35,7 @@ $output_file = $args[1]
 #Writes your output file to the dir that you run this from
 $file_to_write = ""+$(get-location)+"\"+$output_file+""
 $home_DIR = ""+$(get-location)+"\"
+$half_hash_loc = ""+$(get-location)+"\halfhash.txt"
 }
 else{
 Write-Host "You're missing an input or output file name.`nUsage: PS_MultiCrack.ps1 INPUT_FILE OUTPUT_FILE"
@@ -81,8 +83,6 @@ Get-Content $args[0] | Foreach-Object {
 	$ntlmhash=$_.Split(“:”)[4]
 	$salt=$_.Split(“:”)[5]
 
-	#Check the length of the hashes
-	
 	
 	#Checks if the hash is already in john.pot
 	$pot_file_loc = ""+$John_DIR+"john.pot"
@@ -96,13 +96,14 @@ Get-Content $args[0] | Foreach-Object {
 			if ($pot_hash -like $ntlmhash){
 				$prev_cracked = "Previously Cracked: "+$username_to_crack+" "+$prev_pass+""
 				$prev_cracked >> $file_to_write
-				Write-Host ""$username_to_crack""$pot_hash" is already in the Pot File"
+				Write-Host ""$username_to_crack" "$pot_hash" is already in the Pot File"
 				$done = "true"
 			}
 		}
 	}	
 	else{
 		Write-Host "No john.pot file available."
+		$done = "false"
 	}
 	
 	if($done -like "false"){
@@ -121,36 +122,48 @@ Get-Content $args[0] | Foreach-Object {
 	$rcrack_command = ""+$rcrack_DIR+" -h "+$HALFHASH+" "+$rtables_DIR+" -o halfhash.txt"
 	Invoke-Expression $rcrack_command
 
+	#If no halfhash.txt, then write failure to file.
+	if (Test-Path($half_hash_loc)){
 	#Reads and parses rcrack output
-	$seedin1 = Get-Content halfhash.txt
-	$seed = $seedin1.Split(“:”)[1]
-	Write-Host "Seed:"$seed
+		$Del_Half = "true"
+		$seedin1 = Get-Content halfhash.txt
+		$seed = $seedin1.Split(“:”)[1]
+		Write-Host "Seed:"$seed
 
-	#Sets your john directory and changes you to the john DIR
-	$JOHN_DIR_CMD = "cd "+$John_DIR+""
-	Invoke-Expression $JOHN_DIR_CMD
-	
-	#Runs the netntlm.pl for the first time
-	$John_command1 = ""+$perl_DIR+" netntlm.pl --seed "+$seed+" --file "+$file_loc+""
-	Invoke-Expression $John_command1 | Foreach-Object {
-		$seed2 = $_.Split(" ")[0]
-	}
+		#Sets your john directory and changes you to the john DIR
+		$JOHN_DIR_CMD = "cd "+$John_DIR+""
+		Invoke-Expression $JOHN_DIR_CMD
+		
+		#Runs the netntlm.pl for the first time
+		$John_command1 = ""+$perl_DIR+" netntlm.pl --seed "+$seed+" --file "+$file_loc+""
+		Invoke-Expression $John_command1 | Foreach-Object {
+			$seed2 = $_.Split(" ")[0]
+		}
 
-	#Runs the netntlm.pl for the second time
-	$John_command2 = ""+$perl_DIR+" netntlm.pl --seed "+$seed2+" --file "+$file_loc+""
-	Invoke-Expression $John_command2 | Foreach-Object {
-		if ($_ -like '*('+$username_to_crack+')*') { 
-			$_ >> $file_to_write
+		#Runs the netntlm.pl for the second time
+		$John_command2 = ""+$perl_DIR+" netntlm.pl --seed "+$seed2+" --file "+$file_loc+""
+		Invoke-Expression $John_command2 | Foreach-Object {
+			if ($_ -like '*('+$username_to_crack+')*') { 
+				$_ >> $file_to_write
+			}
 		}
 	}
-
+	else{
+		Write-Host "The hash for "$username_to_crack" was not found in the rainbow tables."
+		$hash_not_found = "The hash for "+$username_to_crack+" was not found in the rainbow tables."
+		$hash_not_found >> $file_to_write
+		$Del_Half = "false"
+	}
 	
 	#Brings you back to the DIR you started in
 	$go_home = 	"cd "+$home_DIR+""
 	Invoke-Expression $go_home
 	
 	#Clean up the temp files
-	Invoke-Expression "del halfhash.txt"
+	if ($Del_Half -like "true"){
+		Invoke-Expression "del halfhash.txt"
+	}
+	
 	Invoke-Expression "del current.txt"
 	}
 
