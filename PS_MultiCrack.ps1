@@ -5,8 +5,7 @@
 # Usage: PS_MultiCrack.ps1 INPUT_FILE OUTPUT_FILE
 #
 # Requirements: 
-#				-Hashes need to be in this format:
-#				 Domain\User:::LMHASH:NTLMHASH:1122334455667788
+#				-Rcrack, Rainbow tables, Perl, and a functional netntlm.pl script
 #
 # To Add:
 #		 - Stats for number of hashes cracked, number not found, total time
@@ -44,31 +43,51 @@ break
  
 $LineNum=1
 $LineValid="true"
+
 #Verify the hashes in the file before trying to open them
 Get-Content $args[0] | Foreach-Object {
+
+	#Resets each iteration
+	$input_type="DEFAULT"
+
 	#Check if it's DOMAIN\User
 	$username_check = $_.Split(“:”)[0]
+	#Write-Host "Line"$username_check
+	
+	#Checks if the Domain is after the second :, if so, then it's John format
+	$domain_check = $_.Split(“:”)[2]
+	#Write-Host "Line"$domain_check
+	
 	#Length of 48
 	$lmhash_check=$_.Split(“:”)[3]
+	#Write-Host "Line"$lmhash_check
+	
 	#Length of 48
 	$ntlmhash_check=$_.Split(“:”)[4]
+	#Write-Host "Line"$ntlmhash_check
+	
 	#Length of 16
 	$salt_check=$_.Split(“:”)[5]
-			
-	if ($username_check -notlike "*\*"){
-		Write-Host "Line"$LineNum" is not properly formatted at the Domain\Username Add a \`n"$_"`n"
+	#Write-Host "Line"$salt_check
+	
+	
+	if($domain_check.length -ge 1){
+		$input_type="JOHN"
+	}
+	if (($username_check -notlike "*\*") -and ($input_type -eq"DEFAULT")){
+		Write-Host "Line"$LineNum" is not properly formatted at the Domain\Username Add a \`n"$_"`nProper hash format is:`n Domain\USER:::LMHASH:NTLMHASH:1122334455667788`nor`n USER::Domain:LMHASH:NTLMHASH:1122334455667788`n"
 		break
 	}
 	if($lmhash_check.length -ne 48){
-		Write-Host "Line"$LineNum" is not properly formatted at the LMHASH`n"$_"`n`nCheck your hashes and/or your colons`n"
+		Write-Host "Line"$LineNum" is not properly formatted at the LMHASH`n"$_"`n`nCheck your hashes and/or your colons`nProper hash format is:`n Domain\USER:::LMHASH:NTLMHASH:1122334455667788`nor`n USER::Domain:LMHASH:NTLMHASH:1122334455667788`n"
 		break
 	}
 	if($ntlmhash_check.length -ne 48){
-		Write-Host "Line"$LineNum" is not properly formatted at the NTLMHASH`n"$_"`n`nCheck your hashes and/or your colons`n"
+		Write-Host "Line"$LineNum" is not properly formatted at the NTLMHASH`n"$_"`n`nCheck your hashes and/or your colons`nProper hash format is:`n Domain\USER:::LMHASH:NTLMHASH:1122334455667788`nor`n USER::Domain:LMHASH:NTLMHASH:1122334455667788`n"
 		break
 	}
 	if($salt_check.length -ne 16){
-		Write-Host "Line"$LineNum" is not properly formatted at the SALT`n"$_"`n`nCheck your hashes and/or your colons`n"
+		Write-Host "Line"$LineNum" is not properly formatted at the SALT`n"$_"`n`nCheck your hashes and/or your colons`nProper hash format is:`n Domain\USER:::LMHASH:NTLMHASH:1122334455667788`nor`n USER::Domain:LMHASH:NTLMHASH:1122334455667788`n"
 		break
 	}
 
@@ -77,8 +96,15 @@ Get-Content $args[0] | Foreach-Object {
  
 #Start the big loop
 Get-Content $args[0] | Foreach-Object {
+
 	#Hash parsing method
 	$username_to_crack = $_.Split(“:”)[0]
+	$username = $username_to_crack.Split("\")[1]
+	
+	if($_.Split(“:”)[2] -ge 1){
+		$username = $_.Split(“:”)[0]
+		$username_to_crack = $_.Split(“:”)[2]+"\"+$_.Split(“:”)[0]
+	}
 	$lmhash=$_.Split(“:”)[3]
 	$ntlmhash=$_.Split(“:”)[4]
 	$salt=$_.Split(“:”)[5]
@@ -142,9 +168,14 @@ Get-Content $args[0] | Foreach-Object {
 
 		#Runs the netntlm.pl for the second time
 		$John_command2 = ""+$perl_DIR+" netntlm.pl --seed "+$seed2+" --file "+$file_loc+""
-		Invoke-Expression $John_command2 | Foreach-Object {
-			if ($_ -like '*('+$username_to_crack+')*') { 
-				$_ >> $file_to_write
+		Invoke-Expression $John_command2
+		
+		#Run john a third time to just output the password for easier parsing
+		$John_command3 = ".\john.exe -format:netntlm -show "+$file_loc+""
+		Invoke-Expression $John_command3 | Foreach-Object{
+			if (($_.Split(":")[0] -like $username) -or ($_.Split(":")[0] -like $username_to_crack)) { 
+				$to_Write = ""+$username_to_crack+" "+$_.Split(":")[1]+""
+				$to_Write >> $file_to_write
 			}
 		}
 	}
