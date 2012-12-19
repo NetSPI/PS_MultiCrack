@@ -6,6 +6,7 @@
 #
 # Requirements: 
 #				-Rcrack, Rainbow tables, Perl, and a functional netntlm.pl script
+#				-Also Powershell (Thanks, Eric!)
 #
 # To Add:
 #		 - Stats for number of hashes cracked, number not found, total time
