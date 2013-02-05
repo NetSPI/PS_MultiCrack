@@ -143,7 +143,9 @@ Get-Content $args[0] | Foreach-Object {
 	#Corrects Cygwin errors
 	$file_loc_mod = $file_loc -replace "\\", "/"
 	$file_loc_mod = $file_loc_mod -replace "C\:", "/cygdrive/c"
-	[system.io.file]::WriteAllText($file_loc, $_.TrimEnd())
+	#Add line in here to rearrange the john formatted lines -- Maybe?
+	$HashToFile = ""+$username_to_crack+":::"+$lmhash+":"+$ntlmhash+":"+$salt+""
+	[system.io.file]::WriteAllText($file_loc, $HashToFile.TrimEnd())
 	
 	#Parses Half of the LM hash
 	$HALFHASH = $lmhash.Substring(0,16)
