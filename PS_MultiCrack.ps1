@@ -143,7 +143,7 @@ Get-Content $args[0] | Foreach-Object {
 	#Corrects Cygwin errors
 	$file_loc_mod = $file_loc -replace "\\", "/"
 	$file_loc_mod = $file_loc_mod -replace "C\:", "/cygdrive/c"
-	#Add line in here to rearrange the john formatted lines -- Maybe?
+	#Added line in here to rearrange the john formatted lines
 	$HashToFile = ""+$username_to_crack+":::"+$lmhash+":"+$ntlmhash+":"+$salt+""
 	[system.io.file]::WriteAllText($file_loc, $HashToFile.TrimEnd())
 	
